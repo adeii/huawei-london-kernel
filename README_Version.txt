@@ -5,6 +5,7 @@ git remote add origin https://github.com/adeii/huawei-london-kernel.git
 git remote -v
 git push -f origin master
 ---------------
+git add file1 , file2 ....
 git commit -m "Next commit"
 git commit -a
 git push origin master
