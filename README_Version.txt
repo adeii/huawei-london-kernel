@@ -1,3 +1,14 @@
+git init
+git add .
+git commit -m "Starting commit"
+git remote add origin https://github.com/adeii/huawei-london-kernel.git
+git remote -v
+git push -f origin master
+---------------
+git commit -m "Next commit"
+git commit -a
+git push origin master
+
 Kernel release package version instruction
 
 USE Image.gz-dtb NOTE:
