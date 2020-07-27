@@ -58,7 +58,10 @@
    git am --skip
    git am < 3.18.71.patch
    
-  
+ 5. Far future plan
+    Add commits from various Xiaomi MSM8937 kernels to make new cpu gov/io or more compatible to Pie/Q/R...
+    Like: https://github.com/LordShenron/Direwolf_unified , https://github.com/sunnyraj84348/android_kernel_xiaomi_msm8917/tree/inferno
+    
 ################################################################################
 This package make out Image.gz-dtb only, you have to get ramdisk and add kernel cmdline to generate a total kernel.img before replace your phone's kernelimage.
 
@@ -67,3 +70,5 @@ Place Image.gz-dtb to split_img folder. Rename it as KERNEL.img-zImage and use r
 
 Current files are for rom 8.0.0.147 c432 from 2020-02. If you use another version of rom, change file KERNEL.img-oslevel.
 Tested and working!!!
+
+
