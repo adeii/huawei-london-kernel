@@ -60,7 +60,8 @@
    
  5. Far future plan
     Add commits from various Xiaomi MSM8937 kernels to make new cpu gov/io or more compatible to Pie/Q/R...
-    Like: https://github.com/LordShenron/Direwolf_unified , https://github.com/sunnyraj84348/android_kernel_xiaomi_msm8917/tree/inferno
+    Like: https://github.com/LordShenron/Direwolf_unified , https://github.com/sunnyraj84348/android_kernel_xiaomi_msm8917/tree/inferno ,
+          https://github.com/ChimeraKernelProject/chimera_land-current , https://github.com/Ubports-Land/android_device_xiaomi_msm8937-common
     
 ################################################################################
 This package make out Image.gz-dtb only, you have to get ramdisk and add kernel cmdline to generate a total kernel.img before replace your phone's kernelimage.
