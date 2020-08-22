@@ -68,6 +68,7 @@ This package make out Image.gz-dtb only, you have to get ramdisk and add kernel 
 
 In AIKernel.zip, we got repacking tool from osmosis.
 Place Image.gz-dtb to split_img folder. Rename it as KERNEL.img-zImage and use repackimg.bat (yes, it is Windows version).
+For GNU/Linux use mktool - repack image [https://techstop.github.io/mktool/]
 
 Current files are for rom 8.0.0.147 c432 from 2020-02. If you use another version of rom, change file KERNEL.img-oslevel.
 Tested and working!!!
