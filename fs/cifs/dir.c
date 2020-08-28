@@ -674,9 +674,6 @@ int cifs_mknod(struct inode *inode, struct dentry *direntry, umode_t mode,
 		goto mknod_out;
 	}
 
-	if (!S_ISCHR(mode) && !S_ISBLK(mode))
-		goto mknod_out;
-
 	if (!(cifs_sb->mnt_cifs_flags & CIFS_MOUNT_UNX_EMUL))
 		goto mknod_out;
 
@@ -685,8 +682,10 @@ int cifs_mknod(struct inode *inode, struct dentry *direntry, umode_t mode,
 
 	buf = kmalloc(sizeof(FILE_ALL_INFO), GFP_KERNEL);
 	if (buf == NULL) {
+		kfree(full_path);
 		rc = -ENOMEM;
-		goto mknod_out;
+		free_xid(xid);
+		return rc;
 	}
 
 	if (backup_cred(cifs_sb))
@@ -733,7 +732,7 @@ int cifs_mknod(struct inode *inode, struct dentry *direntry, umode_t mode,
 		pdev->minor = cpu_to_le64(MINOR(device_number));
 		rc = tcon->ses->server->ops->sync_write(xid, &fid, &io_parms,
 							&bytes_written, iov, 1);
-	}
+	} /* else if (S_ISFIFO) */
 	tcon->ses->server->ops->close(xid, tcon, &fid);
 	d_drop(direntry);
 
