@@ -312,7 +312,7 @@ static int is_stack(struct proc_maps_private *priv,
 	 * languages like Go.
 	 */
 	return vma->vm_start <= vma->vm_mm->start_stack &&
-		vma->vm_end >= vma->vm_mm->start_stack
+		vma->vm_end >= vma->vm_mm->start_stack;
 }
 
 static void
@@ -380,7 +380,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 		}
 
 		if (is_stack(priv, vma))
-			name = "[stack]"
+			name = "[stack]";
 
 		if (vma_get_anon_name(vma)) {
 			seq_pad(m, ' ');
