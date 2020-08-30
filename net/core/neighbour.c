@@ -1157,9 +1157,11 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
 		lladdr = neigh->ha;
 	}
 
+	/* Update confirmed timestamp for neighbour entry after we
+	 * received ARP packet even if it doesn't change IP to MAC binding.
+	 */
 	if (new & NUD_CONNECTED)
 		neigh->confirmed = jiffies;
-	neigh->updated = jiffies;
 
 	/* If entry was valid and address is not changed,
 	   do not change entry state, if new one is STALE.
@@ -1183,6 +1185,13 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
 				new = old;
 		}
 	}
+
+	/* Update timestamp only once we know we will make a change to the
+	 * neighbour entry. Otherwise we risk to move the locktime window with
+	 * noop updates and ignore relevant ARP updates.
+	 */
+	if (new != old || lladdr != neigh->ha)
+		neigh->updated = jiffies;
 
 	if (new != old) {
 		neigh_del_timer(neigh);
@@ -1288,17 +1297,14 @@ struct neighbour *neigh_event_ns(struct neigh_table *tbl,
 	struct neighbour *neigh = __neigh_lookup(tbl, saddr, dev,
 						 lladdr || !dev->addr_len);
 	if (neigh) {
+		neigh_update(neigh, lladdr, NUD_STALE,
+			     NEIGH_UPDATE_F_OVERRIDE);
 		if (neigh_probe_enable) {
 			if (!(neigh->nud_state == NUD_REACHABLE)) {
-				neigh_update(neigh, lladdr, NUD_STALE,
-					     NEIGH_UPDATE_F_OVERRIDE);
 				write_lock(&neigh->lock);
 				neigh_probe(neigh);
 				neigh_update_notify(neigh);
 			}
-		} else {
-			neigh_update(neigh, lladdr, NUD_STALE,
-				     NEIGH_UPDATE_F_OVERRIDE);
 		}
 	}
 	return neigh;
