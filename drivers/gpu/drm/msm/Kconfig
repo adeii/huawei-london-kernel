@@ -93,3 +93,4 @@ config DRM_SDE_HDMI
 	default y
 	help
 	  Choose this option if HDMI connector support is needed in SDE driver.
+
