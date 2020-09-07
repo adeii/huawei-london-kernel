@@ -113,6 +113,22 @@ config CPU_FREQ_DEFAULT_GOV_CONSERVATIVE
 	  governor. If unsure have a look at the help section of the
 	  driver. Fallback governor will be the performance governor.
 
+config CPU_FREQ_DEFAULT_GOV_MINMAX
+	bool "minmax"
+	select CPU_FREQ_GOV_MINMAX
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the CPUFreq governor 'minmax' as default. This minimizes the
+	  frequency jumps does by the governor. This is aimed at maximizing
+	  both perfomance and battery life.
+
+config CPU_FREQ_DEFAULT_GOV_SMARTASS
+	bool "smartass"
+	select CPU_FREQ_GOV_SMARTASS
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the CPUFreq governor 'smartass' as default.
+
 config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	bool "interactive"
 	select CPU_FREQ_GOV_INTERACTIVE
@@ -122,6 +138,44 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactive' governor for latency-sensitive workloads.
 
+config CPU_FREQ_DEFAULT_GOV_SMARTASS2
+  	bool "smartassV2"
+  	select CPU_FREQ_GOV_SMARTASS2
+  	help
+
+config CPU_FREQ_DEFAULT_GOV_HYPER
+  	bool "hyper"
+  	select CPU_FREQ_GOV_HYPER
+  	help
+
+config CPU_FREQ_DEFAULT_GOV_ZZMOOVE
+  	bool "zzmoove"
+  	select CPU_FREQ_GOV_ZZMOOVE
+  	help
+
+config CPU_FREQ_DEFAULT_GOV_WHEATLEY
+	bool "wheatley"
+	select CPU_FREQ_GOV_WHEATLEY
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+		Use the CPUFreq governor 'wheatley' as default.
+
+config CPU_FREQ_DEFAULT_GOV_INTELLIACTIVE
+  	bool "intelliactive"
+  	select CPU_FREQ_GOV_INTELLIACTIVE
+  	help
+
+config CPU_FREQ_DEFAULT_GOV_LULZACTIVE
+  	bool "lulzactive"
+  	select CPU_FREQ_GOV_LULZACTIVE
+  	help
+
+config CPU_FREQ_DEFAULT_GOV_LIONFISH
+  	bool "lionfish"
+  	select CPU_FREQ_GOV_LIONFISH
+  	help
+
+
 config CPU_FREQ_DEFAULT_GOV_SCHED
 	bool "sched"
 	select CPU_FREQ_GOV_INTERACTIVE
@@ -129,6 +183,16 @@ config CPU_FREQ_DEFAULT_GOV_SCHED
 	  Use the CPUfreq governor 'sched' as default. This scales
 	  cpu frequency using CPU utilization estimates from the
 	  scheduler.
+
+config CPU_FREQ_DEFAULT_GOV_SCHEDUTIL
+	bool "schedutil"
+	depends on SMP
+	select CPU_FREQ_GOV_SCHEDUTIL
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the 'schedutil' CPUFreq governor by default. If unsure,
+	  have a look at the help section of that governor. The fallback
+	  governor will be 'performance'.
 endchoice
 
 config CPU_FREQ_GOV_PERFORMANCE
@@ -196,9 +260,48 @@ config CPU_FREQ_GOV_INTERACTIVE
 	  increases so that the system is more responsive to
 	  interactive workloads.
 
+	  To compile this driver as a module, choose M here: the
+	  module will be called cpufreq_interactive.
+
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_SMARTASS2
+  	tristate "'smartassV2' cpufreq governor"
+  	depends on CPU_FREQ
+  	help
+    	'smartassV2' - a "smart" governor
+
+config CPU_FREQ_GOV_HYPER
+  	tristate "'Hyper' cpufreq governor"
+  	depends on CPU_FREQ
+  	help
+    	'hyper' governor
+
+config CPU_FREQ_GOV_ZZMOOVE
+  	tristate "'zzmoove' cpufreq governor"
+  	depends on CPU_FREQ
+  	help
+    	'zzmoove' governor
+
+config CPU_FREQ_GOV_WHEATLEY
+	tristate "'wheatley' cpufreq governor"
+	depends on CPU_FREQ
+	
+config CPU_FREQ_GOV_INTELLIACTIVE
+	tristate "'intelliactive' cpufreq governor"
+	depends on CPU_FREQ
+	
+config CPU_FREQ_GOV_LULZACTIVE
+	tristate "'lulzactive' cpufreq governor"
+	depends on CPU_FREQ
+
+config CPU_FREQ_GOV_LIONFISH
+  	tristate "'lionfish' cpufreq governor"
+  	depends on CPU_FREQ
+  	help
+    	'lionfish' governor
 
 config CPU_FREQ_GOV_CONSERVATIVE
 	tristate "'conservative' cpufreq governor"
@@ -223,6 +326,52 @@ config CPU_FREQ_GOV_CONSERVATIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_SCHEDUTIL
+	bool "'schedutil' cpufreq policy governor"
+	depends on CPU_FREQ && SMP
+	select CPU_FREQ_GOV_ATTR_SET
+	select IRQ_WORK
+	help
+	  This governor makes decisions based on the utilization data provided
+	  by the scheduler.  It sets the CPU frequency to be proportional to
+	  the utilization/capacity ratio coming from the scheduler.  If the
+	  utilization is frequency-invariant, the new frequency is also
+	  proportional to the maximum available frequency.  If that is not the
+	  case, it is proportional to the current frequency of the CPU.  The
+	  frequency tipping point is at utilization/capacity equal to 80% in
+	  both cases.
+
+config CPU_FREQ_GOV_MINMAX
+	tristate "'minmax' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'minmax' - this driver tries to minimize the frequency jumps by limiting
+	  the the selected frequencies to either the min or the max frequency of
+	  the policy. The frequency is selected according to the load.
+
+	  If in doubt, say N.
+
+config CPU_FREQ_GOV_SMARTASS
+	tristate "'smartass' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'smartass' - a "smart" optimized governor for the hero!
+
+	  If in doubt, say N.
+
+config CPU_FREQ_MIN_TICKS
+	int "Ticks between governor polling interval."
+	default 10
+	help
+	  Minimum number of ticks between polling interval for governors.
+
+config CPU_FREQ_SAMPLING_LATENCY_MULTIPLIER
+	int "Sampling rate multiplier for governors."
+	default 1000
+	help
+	  Sampling latency rate multiplied by the cpu switch latency.
+	  Affects governor polling.
 
 config CPU_FREQ_GOV_SCHED
 	bool "'sched' cpufreq governor"

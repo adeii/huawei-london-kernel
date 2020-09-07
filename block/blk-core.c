@@ -1238,6 +1238,16 @@ struct request *blk_make_request(struct request_queue *q, struct bio *bio,
 	return rq;
 }
 EXPORT_SYMBOL(blk_make_request);
+static void __blk_put_back_rq(struct request_queue *q, struct request *rq)
+{
+ blk_delete_timer(rq);
+ blk_clear_rq_complete(rq);
+
+ if (blk_rq_tagged(rq))
+ blk_queue_end_tag(q, rq);
+
+ BUG_ON(blk_queued_rq(rq));
+}
 
 /**
  * blk_rq_set_block_pc - initialize a request to type BLOCK_PC
@@ -1266,18 +1276,44 @@ EXPORT_SYMBOL(blk_rq_set_block_pc);
  */
 void blk_requeue_request(struct request_queue *q, struct request *rq)
 {
-	blk_delete_timer(rq);
-	blk_clear_rq_complete(rq);
+	__blk_put_back_rq(q, rq);
 	trace_block_rq_requeue(q, rq);
-
-	if (blk_rq_tagged(rq))
-		blk_queue_end_tag(q, rq);
-
-	BUG_ON(blk_queued_rq(rq));
 
 	elv_requeue_request(q, rq);
 }
 EXPORT_SYMBOL(blk_requeue_request);
+/**
+ * blk_reinsert_request() - Insert a request back to the scheduler
+ * @q: request queue
+ * @rq: request to be inserted
+ *
+ * This function inserts the request back to the scheduler as if
+ * it was never dispatched.
+ *
+ * Return: 0 on success, error code on fail
+ */
+int blk_reinsert_request(struct request_queue *q, struct request *rq)
+{
+ __blk_put_back_rq(q, rq);
+ return elv_reinsert_request(q, rq);
+}
+EXPORT_SYMBOL(blk_reinsert_request);
+
+/**
+ * blk_reinsert_req_sup() - check whether the scheduler supports
+ * reinsertion of requests
+ * @q: request queue
+ *
+ * Returns true if the current scheduler supports reinserting
+ * request. False otherwise
+ */
+bool blk_reinsert_req_sup(struct request_queue *q)
+{
+ if (unlikely(!q))
+ return false;
+ return q->elevator->type->ops.elevator_reinsert_req_fn ? true : false;
+}
+EXPORT_SYMBOL(blk_reinsert_req_sup);
 
 static void add_acct_request(struct request_queue *q, struct request *rq,
 			     int where)
