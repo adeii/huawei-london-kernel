@@ -22,7 +22,10 @@
 #include <linux/msm_adreno_devfreq.h>
 #include <asm/cacheflush.h>
 #include <soc/qcom/scm.h>
+#include <linux/powersuspend.h>
 #include "governor.h"
+
+static bool power_suspended;
 
 static DEFINE_SPINLOCK(tz_lock);
 static DEFINE_SPINLOCK(sample_lock);
@@ -67,6 +70,9 @@ static void do_partner_start_event(struct work_struct *work);
 static void do_partner_stop_event(struct work_struct *work);
 static void do_partner_suspend_event(struct work_struct *work);
 static void do_partner_resume_event(struct work_struct *work);
+/* Boolean to detect if pm has entered suspend mode */
+/* Trap into the TrustZone, and call funcs there. */
+static bool suspended = false;
 
 static struct workqueue_struct *workqueue;
 
@@ -338,6 +344,10 @@ static int tz_init(struct devfreq_msm_adreno_tz_data *priv,
 	return ret;
 }
 
+#ifdef CONFIG_ADRENO_IDLER
+extern int adreno_idler(struct devfreq_dev_status stats, struct devfreq *devfreq,
+		 unsigned long *freq);
+#endif
 static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 				u32 *flag)
 {
@@ -355,7 +365,31 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 		return result;
 	}
 
+	/* Prevent overflow */
+	if (stats.busy_time >= (1 << 24) || stats.total_time >= (1 << 24)) {
+		stats.busy_time >>= 7;
+		stats.total_time >>= 7;
+	}
+
 	*freq = stats.current_frequency;
+	*flag = 0;
+
+	/*
+	 * Force to use & record as min freq when system has
+	 * entered pm-suspend or screen-off state.
+	 */
+	if (suspended || power_suspended) {
+		*freq = devfreq->profile->freq_table[devfreq->profile->max_state - 1];
+		return 0;
+	}
+
+#ifdef CONFIG_ADRENO_IDLER
+	if (adreno_idler(stats, devfreq, freq)) {
+		/* adreno_idler has asked to bail out now */
+		return 0;
+	}
+#endif
+
 	priv->bin.total_time += stats.total_time;
 	priv->bin.busy_time += stats.busy_time;
 
@@ -475,6 +509,8 @@ static int tz_start(struct devfreq *devfreq)
 		return -EINVAL;
 	}
 
+	gpu_profile->partner_wq = create_freezable_workqueue
+					("governor_msm_adreno_tz_wq");
 	INIT_WORK(&gpu_profile->partner_start_event_ws,
 					do_partner_start_event);
 	INIT_WORK(&gpu_profile->partner_stop_event_ws,
@@ -501,6 +537,10 @@ static int tz_stop(struct devfreq *devfreq)
 {
 	int i;
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
+	struct msm_adreno_extended_profile *gpu_profile = container_of(
+					(devfreq->profile),
+					struct msm_adreno_extended_profile,
+					profile);
 
 	kgsl_devfreq_del_notifier(devfreq->dev.parent, &priv->nb);
 
@@ -523,7 +563,11 @@ static int tz_suspend(struct devfreq *devfreq)
 
 	priv->bin.total_time = 0;
 	priv->bin.busy_time = 0;
-	return 0;
+	priv->bus.total_time = 0;
+	priv->bus.gpu_time = 0;
+	priv->bus.ram_time = 0;
+        return 0;
+
 }
 
 static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)

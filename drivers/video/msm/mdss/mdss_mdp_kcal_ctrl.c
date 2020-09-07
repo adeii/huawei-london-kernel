@@ -21,9 +21,66 @@
 #include <linux/platform_device.h>
 #include <linux/init.h>
 #include <linux/module.h>
-
 #include "mdss_mdp.h"
-#include "mdss_mdp_kcal_ctrl.h"
+
+#define NUM_QLUT 0x100
+#define DEF_PA 0xff
+#define DEF_PCC 0x100
+#define PCC_ADJ 0x80
+
+void mdss_mdp_pp_kcal_enable(bool enable);
+void mdss_mdp_pp_kcal_update(int kr, int kg, int kb);
+void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data);
+void mdss_mdp_pp_kcal_invert(int enable);
+
+struct kcal_lut_data {
+	int red;
+	int green;
+	int blue;
+	int minimum;
+	int enable;
+	int invert;
+	int sat;
+	int hue;
+	int val;
+	int cont;
+};
+
+static struct kcal_lut_data *lut_data;
+
+struct mdss_mdp_ctl *fb0_ctl = 0;
+
+static int mdss_mdp_kcal_store_fb0_ctl(void)
+{
+	int i;
+	struct mdss_mdp_ctl *ctl;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (fb0_ctl) return 1;
+	if (!mdata) {
+		pr_err("%s mdata is NULL...",__func__);
+		return 0;
+	}
+
+	for (i = 0; i < mdata->nctl; i++) {
+		ctl = mdata->ctl_off + i;
+		if (!ctl) {
+			pr_err("%s ctl is NULL...\n",__func__);
+			return 0;
+		}
+		if (!(ctl->mfd)) {
+			pr_err("%s MFD is NULL...\n",__func__);
+			return 0;
+		}
+		pr_err("%s panel name %s\n",__func__,ctl->mfd->panel_info->panel_name);
+		if ( ctl->mfd->panel_info->fb_num  == 0 ) {
+			pr_err("%s panel found...\n",__func__);
+			fb0_ctl = ctl;
+			return 1;
+		}
+	}
+	return 0;
+}
 
 static void kcal_apply_values(struct kcal_lut_data *lut_data)
 {
@@ -39,6 +96,33 @@ static void kcal_apply_values(struct kcal_lut_data *lut_data)
 
 	mdss_mdp_pp_kcal_update(lut_data->red, lut_data->green, lut_data->blue);
 }
+
+void kcal_rgb_store(int r, int g, int b){
+	if (lut_data != NULL){
+	        lut_data->red = r;
+        	lut_data->green = g;
+        	lut_data->blue = b;
+
+	        mdss_mdp_kcal_update_pcc(lut_data);
+	} else{
+		pr_warn("lut_data is null!! not changing rgb!!");
+	}
+}
+EXPORT_SYMBOL_GPL(kcal_rgb_store);
+
+void kcal_rgb_get(int *r, int *g, int *b){
+	if (lut_data != NULL){
+		*r = lut_data->red;
+        	*g = lut_data->green;
+        	*b = lut_data->blue;
+	} else{
+		*r = 256;
+		*g = 256;
+		*b = 256;
+		pr_warn("lut_data is null!! setting rgb values to 256!!");
+	}
+}
+EXPORT_SYMBOL_GPL(kcal_rgb_get);
 
 static ssize_t kcal_store(struct device *dev, struct device_attribute *attr,
 						const char *buf, size_t count)
@@ -67,6 +151,42 @@ static ssize_t kcal_store(struct device *dev, struct device_attribute *attr,
 	kcal_apply_values(lut_data);
 
 	return count;
+}
+
+void mdss_mdp_kcal_update_pcc(struct kcal_lut_data *lut_data)
+{
+	u32 copyback = 0;
+	struct mdp_pcc_cfg_data pcc_config;
+
+	struct mdp_pcc_data_v1_7 *payload;
+
+	lut_data->red = lut_data->red < lut_data->minimum ?
+		lut_data->minimum : lut_data->red;
+	lut_data->green = lut_data->green < lut_data->minimum ?
+		lut_data->minimum : lut_data->green;
+	lut_data->blue = lut_data->blue < lut_data->minimum ?
+		lut_data->minimum : lut_data->blue;
+
+	memset(&pcc_config, 0, sizeof(struct mdp_pcc_cfg_data));
+
+	pcc_config.version = mdp_pcc_v1_7;
+	pcc_config.block = MDP_LOGICAL_BLOCK_DISP_0;
+	pcc_config.ops = lut_data->enable ?
+		MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE :
+			MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
+	pcc_config.r.r = lut_data->red * PCC_ADJ;
+	pcc_config.g.g = lut_data->green * PCC_ADJ;
+	pcc_config.b.b = lut_data->blue * PCC_ADJ;
+
+	payload = kzalloc(sizeof(struct mdp_pcc_data_v1_7),GFP_USER);
+	payload->r.r = pcc_config.r.r;
+	payload->g.g = pcc_config.g.g;
+	payload->b.b = pcc_config.b.b;
+	pcc_config.cfg_payload = payload;
+
+	if (!mdss_mdp_kcal_store_fb0_ctl()) return;
+	mdss_mdp_pcc_config(fb0_ctl->mfd, &pcc_config, &copyback);
+	kfree(payload);
 }
 
 static ssize_t kcal_show(struct device *dev, struct device_attribute *attr,

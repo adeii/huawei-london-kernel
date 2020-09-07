@@ -411,7 +411,7 @@ static struct bfq_group *bfq_bic_update_cgroup(struct bfq_io_cq *bic)
 	BUG_ON(bfqd == NULL);
 
 	rcu_read_lock();
-	css = task_css(current, NULL); // bfqio_cgrp_id);
+	css = task_css(current, bfqio_cgrp_id);    //     NULL); //
 	bfqg = __bfq_bic_change_cgroup(bfqd, bic, css);
 	rcu_read_unlock();
 

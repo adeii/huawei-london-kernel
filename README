@@ -36,7 +36,7 @@
 
 2. Output files
 	- Kernel : arch/arm64/boot/Image.gz-dtb
-	- module : drivers/*/*.o (not needed after all)
+	- module : drivers/*/*.o (not needed after all, even pass compiling but error 2 in the end.)
 	
 3. How to Clean
 
@@ -60,8 +60,11 @@
    
  5. Far future plan
     Add commits from various Xiaomi MSM8937 kernels to make new cpu gov/io or more compatible to Pie/Q/R...
-    Like: https://github.com/LordShenron/Direwolf_unified , https://github.com/sunnyraj84348/android_kernel_xiaomi_msm8917/tree/inferno ,
-          https://github.com/ChimeraKernelProject/chimera_land-current , https://github.com/Ubports-Land/android_device_xiaomi_msm8937-common
+    Like: https://github.com/LordShenron/Direwolf_unified ,
+          https://github.com/sunnyraj84348/android_kernel_xiaomi_msm8917/tree/inferno ,
+          https://github.com/ChimeraKernelProject/chimera_land-current ,
+          https://github.com/Ubports-Land/android_device_xiaomi_msm8937-common ,
+          https://github.com/linuxpanda/android_kernel_xiaomi_rosy/tree/3.18
     
 ################################################################################
 This package make out Image.gz-dtb only, you have to get ramdisk and add kernel cmdline to generate a total kernel.img before replace your phone's kernelimage.
@@ -70,7 +73,8 @@ In AIKernel.zip, we got repacking tool from osmosis.
 Place Image.gz-dtb to split_img folder. Rename it as KERNEL.img-zImage and use repackimg.bat (yes, it is Windows version).
 For GNU/Linux use mktool - repack image [https://techstop.github.io/mktool/]
 
-Current files are for rom 8.0.0.147 c432 from 2020-02. If you use another version of rom, change file KERNEL.img-oslevel.
+Current files are for rom 8.0.0.147 c432 from 2020-02.
+If you use another version of rom, change file KERNEL.img-oslevel.
 Tested and working!!!
 
 
