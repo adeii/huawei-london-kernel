@@ -2,7 +2,7 @@
  * Core MDSS framebuffer driver.
  *
  * Copyright (C) 2007 Google Incorporated
- * Copyright (c) 2008-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2019, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -48,6 +48,9 @@
 #include <linux/file.h>
 #include <linux/kthread.h>
 #include <linux/dma-buf.h>
+#ifdef CONFIG_KLAPSE
+#include <linux/klapse.h>
+#endif
 #include "mdss_fb.h"
 #include "mdss_mdp_splash_logo.h"
 #define CREATE_TRACE_POINTS
@@ -277,6 +280,15 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 
 static int lcd_backlight_registered;
 
+#define LINEAR_CONVERT(v_old, min_new, max_new, min_old, max_old) \
+				((((v_old - min_old) * (max_new - min_new)) / (max_old - min_old)) + min_new)
+
+#define MDSS_BRIGHT_TO_BL1(out, v, bl_min, bl_max, min_bright, max_bright) do {\
+				if (v <= min_bright) out = bl_min; \
+				else \
+				out = LINEAR_CONVERT(v, bl_min, bl_max, min_bright, max_bright); \
+				} while (0)
+
 static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 				      enum led_brightness value)
 {
@@ -303,6 +315,9 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 							!mfd->bl_level)) {
 		mutex_lock(&mfd->bl_lock);
 		mdss_fb_set_backlight(mfd, bl_lvl);
+#ifdef CONFIG_KLAPSE
+		set_rgb_slider(bl_lvl);
+#endif
 		mutex_unlock(&mfd->bl_lock);
 	}
 }
@@ -1203,6 +1218,7 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	struct mdss_panel_data *pdata;
 	struct fb_info *fbi;
 	int rc;
+	const char *data;
 
 	if (fbi_list_index >= MAX_FBI_LIST)
 		return -ENOMEM;
@@ -3407,7 +3423,7 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 	struct mdss_panel_info *pinfo;
 	bool wait_for_finish, wb_change = false;
 	int ret = -EPERM;
-	u32 old_xres, old_yres, old_format;
+	u32 old_xres = 0, old_yres = 0, old_format = 0;
 
 	if (!mfd || (!mfd->op_enable)) {
 		pr_err("mfd is NULL or operation not permitted\n");
@@ -4863,6 +4879,8 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_buf_sync buf_sync;
 	unsigned int dsi_mode = 0;
 	struct mdss_panel_data *pdata = NULL;
+	unsigned int Color_mode = 0;
+	unsigned int CE_mode = 0;
 
 	if (!info || !info->par)
 		return -EINVAL;

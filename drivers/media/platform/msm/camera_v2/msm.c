@@ -38,6 +38,7 @@
 static struct v4l2_device *msm_v4l2_dev;
 static struct list_head    ordered_sd_list;
 static struct mutex        ordered_sd_mtx;
+static struct mutex        v4l2_event_mtx;
 
 static struct pm_qos_request msm_v4l2_pm_qos_request;
 
@@ -1423,7 +1424,7 @@ static int msm_probe(struct platform_device *pdev)
 		pr_warn("NON-FATAL: failed to create logsync base directory\n");
 	} else {
 		if (!debugfs_create_file(MSM_CAM_LOGSYNC_FILE_NAME,
-					 0660,
+					 0666,
 					 cam_debugfs_root,
 					 NULL,
 					 &logsync_fops))
