@@ -249,3 +249,4 @@ config DEVFREQ_SPDM
 	  Used with the MSM SPDM Hypervisor Governor.
 
 endif # PM_DEVFREQ
+
