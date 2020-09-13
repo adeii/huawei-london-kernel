@@ -59,10 +59,6 @@ SUBSYS(hugetlb)
 SUBSYS(iolimit)
 #endif
 
-#if IS_ENABLED(CONFIG_CGROUP_SCHEDTUNE)
-SUBSYS(schedtune)
-#endif
-
 #if IS_ENABLED(CONFIG_CGROUP_BFQIO)
 SUBSYS(bfqio)
 #endif

@@ -1351,12 +1351,54 @@ TRACE_EVENT(core_ctl_set_busy,
 		__entry->busy = busy;
 		__entry->old_is_busy = old_is_busy;
 		__entry->is_busy = is_busy;
+#ifdef CONFIG_SCHED_WALT
+		__entry->util_avg_walt =
+				div64_u64(cpu_rq(cpu)->cumulative_runnable_avg,
+						  walt_ravg_window >> SCHED_LOAD_SHIFT);
+		if (!walt_disabled && sysctl_sched_use_walt_cpu_util)
+			__entry->util_avg		= __entry->util_avg_walt;
+#endif
 	),
 	TP_printk("cpu=%u, busy=%u, old_is_busy=%u, new_is_busy=%u",
 		  __entry->cpu, __entry->busy, __entry->old_is_busy,
 		  __entry->is_busy)
 );
+/*
+ * Tracepoint for schedtune_tasks_update
+ */
+TRACE_EVENT(sched_tune_filter,
 
+        TP_PROTO(int nrg_delta, int cap_delta,
+                 int nrg_gain,  int cap_gain,
+                 int payoff, int region),
+
+        TP_ARGS(nrg_delta, cap_delta, nrg_gain, cap_gain, payoff, region),
+
+        TP_STRUCT__entry(
+                __field( int,        nrg_delta        )
+                __field( int,        cap_delta        )
+                __field( int,        nrg_gain        )
+                __field( int,        cap_gain        )
+                __field( int,        payoff                )
+                __field( int,        region                )
+        ),
+
+        TP_fast_assign(
+                __entry->nrg_delta        = nrg_delta;
+                __entry->cap_delta        = cap_delta;
+                __entry->nrg_gain        = nrg_gain;
+                __entry->cap_gain        = cap_gain;
+                __entry->payoff                = payoff;
+                __entry->region                = region;
+        ),
+
+        TP_printk("nrg_delta=%d cap_delta=%d nrg_gain=%d cap_gain=%d payoff=%d  
+region=%d",
+                __entry->nrg_delta, __entry->cap_delta,
+                __entry->nrg_gain, __entry->cap_gain,
+                __entry->payoff, __entry->region)
+);
+ 
 #endif /* _TRACE_SCHED_H */
 
 /* This part must be outside protection */

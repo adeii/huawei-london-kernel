@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2017, Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2018, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,6 +49,10 @@
 
 #include <linux/msm-bus.h>
 
+#ifdef CONFIG_FORCE_FAST_CHARGE
+#include <linux/fastchg.h>
+#endif
+
 #define MSM_USB_BASE	(motg->regs)
 #define MSM_USB_PHY_CSR_BASE (motg->phy_csr_regs)
 
@@ -79,6 +83,13 @@
 
 #define FLOATED_MAX_CURRENT     1000
 #define DEFAULT_USB_VOLT    5000000
+#define MICRO_5V 5000000
+#define MICRO_9V 9000000
+
+#define SDP_CURRENT_UA 500000
+#define CDP_CURRENT_UA 1500000
+#define DCP_CURRENT_UA 1500000
+#define HVDCP_CURRENT_UA 2000000
 
 enum msm_otg_phy_reg_mode {
 	USB_PHY_REG_OFF,
@@ -1713,7 +1724,7 @@ static void msm_otg_notify_host_mode(struct msm_otg *motg, bool host_mode)
 static int msm_otg_notify_chg_type(struct msm_otg *motg)
 {
 	static int charger_type;
-
+	// union power_supply_propval propval;
 	/*
 	 * TODO
 	 * Unify OTG driver charger types and power supply charger types
@@ -1835,6 +1846,15 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 
 	if (motg->cur_power == mA)
 		return;
+
+#ifdef CONFIG_FORCE_FAST_CHARGE
+	if (force_fast_charge > 0 && mA > 0) {
+		mA = IDEV_CHG_MAX;
+		pr_info("USB fast charging is ON\n");
+	} else {
+		pr_info("USB fast charging is OFF\n");
+	}
+#endif
 
 	dev_info(motg->phy.dev, "Avail curr from USB = %u\n", mA);
 	msm_otg_dbg_log_event(&motg->phy, "AVAIL CURR FROM USB",
@@ -1970,6 +1990,8 @@ static void msm_otg_start_host(struct usb_otg *otg, int on)
 		msm_otg_perf_vote_update(motg, false);
 		pm_qos_remove_request(&motg->pm_qos_req_dma);
 
+		pm_runtime_disable(&hcd->self.root_hub->dev);
+		pm_runtime_barrier(&hcd->self.root_hub->dev);
 		usb_remove_hcd(hcd);
 		msm_otg_reset(&motg->phy);
 
@@ -3007,10 +3029,10 @@ static void msm_otg_sm_work(struct work_struct *w)
 			msm_otg_start_peripheral(otg, 0);
 			msm_otg_dbg_log_event(&motg->phy, "RT PM: B_PERI A PUT",
 				get_pm_runtime_counter(dev), 0);
-			/* _put for _get done on cable connect in B_IDLE */
-			pm_runtime_put_noidle(dev);
 			/* Schedule work to finish cable disconnect processing*/
 			otg->phy->state = OTG_STATE_B_IDLE;
+			/* _put for _get done on cable connect in B_IDLE */
+			pm_runtime_put_noidle(dev);
 			work = 1;
 		} else if (test_bit(A_BUS_SUSPEND, &motg->inputs)) {
 			pr_debug("a_bus_suspend\n");

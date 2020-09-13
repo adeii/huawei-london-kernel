@@ -20,7 +20,7 @@
 #include "tune.h"
 
 unsigned long boosted_cpu_util(int cpu);
-
+int kstrtobool(const char *s, bool *res);
 /* Stub out fast switch routines present on mainline to reduce the backport
  * overhead. */
 #define cpufreq_driver_fast_switch(x, y) 0
@@ -28,7 +28,12 @@ unsigned long boosted_cpu_util(int cpu);
 #define cpufreq_disable_fast_switch(x)
 #define LATENCY_MULTIPLIER			(1000)
 #define SUGOV_KTHREAD_PRIORITY	50
-
+#ifdef CONFIG_SCHED_WALT
+unsigned int sysctl_sched_use_walt_cpu_util = 1;
+unsigned int sysctl_sched_use_walt_task_util = 1;
+__read_mostly unsigned int sysctl_sched_walt_cpu_high_irqload =
+    (10 * NSEC_PER_MSEC);
+#endif
 struct sugov_tunables {
 	struct gov_attr_set attr_set;
 	unsigned int up_rate_limit_us;
@@ -184,7 +189,8 @@ static unsigned int get_next_freq(struct sugov_policy *sg_policy,
 	sg_policy->cached_raw_freq = freq;
 	return cpufreq_driver_resolve_freq(policy, freq);
 }
-
+unsigned int sysctl_sched_use_walt_cpu_util = 1;
+bool __read_mostly walt_disabled = false;
 static inline bool use_pelt(void)
 {
 #ifdef CONFIG_SCHED_WALT

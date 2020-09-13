@@ -198,7 +198,8 @@ struct qusb_phy {
 
 static void qusb_phy_update_tcsr_level_shifter(struct qusb_phy *qphy, u32 val)
 {
-	int scm_ret, resp_ret;
+	int scm_ret, resp_ret = 0;
+	int dummy = 0;
 
 	dev_dbg(qphy->phy.dev, "%s(): update tcsr lvl shift value:%d\n",
 				__func__, val);

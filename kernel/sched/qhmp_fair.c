@@ -6150,6 +6150,14 @@ static inline void unthrottle_offline_cfs_rqs(struct rq *rq) {}
  * CFS operations on tasks:
  */
 
+#ifdef CONFIG_SMP
+static bool __cpu_overutilized(int cpu, int delta);
+static bool cpu_overutilized(int cpu);
+unsigned long boosted_cpu_util(int cpu);
+#else
+#define boosted_cpu_util(cpu) cpu_util_freq(cpu)
+#endif
+
 #ifdef CONFIG_SCHED_HRTICK
 static void hrtick_start_fair(struct rq *rq, struct task_struct *p)
 {
