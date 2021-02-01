@@ -34,6 +34,11 @@ config POWERSUSPEND
 	  Call early suspend handlers when the user
 	  requested sleep state changes.
 	  
+config BOEFFLA_WL_BLOCKER
+	bool "Boeffla generic wakelock blocker driver"
+	depends on PM
+	default N  
+	  
 config HIBERNATE_CALLBACKS
 	bool
 
