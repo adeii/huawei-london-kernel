@@ -77,7 +77,11 @@ Current files are for rom 8.0.0.147 c432 from 2020-02.
 If you use another version of rom, change file KERNEL.img-oslevel.
 Tested and working!!!
 
-UPDATE1> Let's test EVA-GCC (gcc v10)
-1a - git clone https://github.com/mvaisakh/gcc-arm64.git -b lld-integration eva-gcc
+UPDATE1> Let's test EVA-GCC (gcc v10)  --- SKIP THIS - Not bootable
+1a - git clone https://github.com/mvaisakh/gcc-arm64.git -b gcc-master eva-gcc
 1b - make ARCH=arm64 CROSS_COMPILE=/home/ade/kernel/eva-gcc/bin/aarch64-elf- L21_defconfig Image.gz-dtb
-1c - patches if needed: https://gist.github.com/mvaisakh/50cfeb0308d09636ba489a79e6d8aca9#file-gcc-inline-regressions-patch
+1c - patches (not needed): https://gist.github.com/mvaisakh/50cfeb0308d09636ba489a79e6d8aca9#file-gcc-inline-regressions-patch
+
+UPDATE2> Let's test gcc v7    --- WORKS with Nathan Chance's gcc7+ patch
+1a - git clone --depth=1 https://github.com/nathanchance/gcc-prebuilts -b aarch64-gnu-7.x gcc7
+1b - make ARCH=arm64 CROSS_COMPILE=/home/ade/kernel/gcc7/bin/aarch64-gnu-linux-android- L21_defconfig Image.gz-dtb
