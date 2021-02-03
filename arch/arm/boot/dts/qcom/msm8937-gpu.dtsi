@@ -59,7 +59,7 @@
 
 		qcom,highest-bank-bit = <14>;
 
-		qcom,snapshot-size = <1048576>; //bytes
+		qcom,snapshot-size = <0x200000>; //bytes
 
 		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
 			<&clock_gcc clk_gcc_oxili_ahb_clk>,
@@ -124,6 +124,9 @@
 
 		/* Context aware jump target power level */
 		qcom,ca-target-pwrlevel = <1>;
+
+		/* Enable gpu cooling device */
+		#cooling-cells = <2>;
 
 		/* GPU Mempools */
 		qcom,gpu-mempools {

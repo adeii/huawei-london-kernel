@@ -2,7 +2,7 @@
 # Automatically generated file; DO NOT EDIT.
 # Linux/arm64 3.18.140 Kernel Configuration
 #
-CONFIG_LOCALVERSION="-Adeii_001"
+CONFIG_LOCALVERSION="-adeii_002"
 # CONFIG_LOCALVERSION_AUTO is not set
 CONFIG_ARM64=y
 CONFIG_64BIT=y

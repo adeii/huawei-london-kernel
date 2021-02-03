@@ -1,0 +1,118 @@
+From 226e4c2e7ee38e156f0d0f4b240e10e0d639f9d5 Mon Sep 17 00:00:00 2001
+From: andip71 <andreasp@gmx.de>
+Date: Tue, 29 Aug 2017 17:02:39 +0200
+Subject: [PATCH] boeffla_wl_blocker: update to wakelock blocker driver v1.0.1
+
+- currently active wakelocks on the list are forcefully killed
+---
+ drivers/base/power/boeffla_wl_blocker.c |  9 ++++---
+ drivers/base/power/wakeup.c             | 35 ++++++++++++++++++-------
+ 2 files changed, 31 insertions(+), 13 deletions(-)
+
+diff --git a/drivers/base/power/boeffla_wl_blocker.c b/drivers/base/power/boeffla_wl_blocker.c
+index 4409648514db..03bb67e7651e 100644
+--- a/drivers/base/power/boeffla_wl_blocker.c
++++ b/drivers/base/power/boeffla_wl_blocker.c
+@@ -1,7 +1,7 @@
+ /*
+- * Author: andip71, 28.08.2017
++ * Author: andip71, 29.08.2017
+  *
+- * Version 1.0.0
++ * Version 1.0.1
+  *
+  * This software is licensed under the terms of the GNU General Public
+  * License version 2, as published by the Free Software Foundation, and
+@@ -17,6 +17,9 @@
+ /*
+  * Change log:
+  *
++ * 1.0.1 (29.08.2017)
++ *   - Add killing wakelock when currently active
++ *
+  * 1.0.0 (28.08.2017)
+  *   - Initial version
+  *
+@@ -30,7 +33,7 @@
+ #include <linux/printk.h>
+
+
+-#define BOEFFLA_WL_BLOCKER_VERSION	"1.0.0"
++#define BOEFFLA_WL_BLOCKER_VERSION	"1.0.1"
+
+
+ /*****************************************/
+diff --git a/drivers/base/power/wakeup.c b/drivers/base/power/wakeup.c
+index 9cf64df539fa..7e1f75454ce7 100644
+--- a/drivers/base/power/wakeup.c
++++ b/drivers/base/power/wakeup.c
+@@ -22,10 +22,12 @@
+
+
+ #ifdef CONFIG_BOEFFLA_WL_BLOCKER
+-char list_wl[255];
+-char list_wl_search[257];
++char list_wl[255] = {0};
++char list_wl_search[257] = {0};
+ bool wl_blocker_active = false;
+ bool wl_blocker_debug = false;
++
++static void wakeup_source_deactivate(struct wakeup_source *ws);
+ #endif
+
+
+@@ -563,7 +565,7 @@ static void wakeup_source_activate(struct wakeup_source *ws)
+ // AP: Function to check if a wakelock is on the wakelock blocker list
+ static bool check_for_block(struct wakeup_source *ws)
+ {
+-	char wakelock_name[52];
++	char wakelock_name[52] = {0};
+
+ 	// if debug mode on, print every wakelock requested
+ 	if (wl_blocker_debug)
+@@ -573,25 +575,38 @@ static bool check_for_block(struct wakeup_source *ws)
+ 	if (!wl_blocker_active)
+ 		return false;
+
+-	// check if wakelock is in wake lock list to be blocked
++	// only if ws structure is valid
+ 	if (ws)
+ 	{
+ 		// wake lock names which are longer than 50 chars are not handled
+ 		if (strlen(ws->name) > 50)
+ 			return false;
+
++		// check if wakelock is in wake lock list to be blocked
+ 		sprintf(wakelock_name, ";%s;", ws->name);
+
+ 		if(strstr(list_wl_search, wakelock_name) == NULL)
+ 			return false;
+-	}
+
+-	// wake lock is in list, print it if debug mode on
+-	if (wl_blocker_debug)
+-		printk("Boeffla WL blocker: %s blocked\n", ws->name);
++		// wake lock is in list, print it if debug mode on
++		if (wl_blocker_debug)
++			printk("Boeffla WL blocker: %s blocked\n", ws->name);
++
++		// if it is currently active, deactivate it immediately + log in debug mode
++		if (ws->active)
++		{
++			wakeup_source_deactivate(ws);
++
++			if (wl_blocker_debug)
++				printk("Boeffla WL blocker: %s killed\n", ws->name);
++		}
++
++		// finally block it
++		return true;
++	}
+
+-	// finally block it
+-	return true;
++	// there was no valid ws structure, do not block by default
++	return false;
+ }
+ #endif
+

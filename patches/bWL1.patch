@@ -1,0 +1,373 @@
+From 16fd4834b710824dc86918abeafb58956634f31d Mon Sep 17 00:00:00 2001
+From: andip71 <andreasp@gmx.de>
+Date: Mon, 28 Aug 2017 14:57:18 +0200
+Subject: [PATCH] boeffla_wl_blocker: add generic wakelock blocker driver
+ v1.0.0
+
+Based on ideas of FranciscoFranco's non-generic driver.
+
+Sysfs node:
+
+	/sys/class/misc/boeffla_wakelock_blocker/wakelock_blocker
+
+		- list of wakelocks to be blocked, separated by semicolons
+
+	/sys/class/misc/boeffla_wakelock_blocker/debug
+
+		- write: 0/1 to switch off and on debug logging into dmesg
+		- read:  get current driver internals
+
+	/sys/class/misc/boeffla_wakelock_blocker/version
+
+		- show driver version
+
+Signed-off-by: andip71 <andreasp@gmx.de>
+---
+ drivers/base/power/Makefile             |   1 +
+ drivers/base/power/boeffla_wl_blocker.c | 181 ++++++++++++++++++++++++
+ drivers/base/power/main.c               |   4 +
+ drivers/base/power/wakeup.c             |  72 ++++++++--
+ kernel/power/Kconfig                    |   9 +-
+ 5 files changed, 255 insertions(+), 12 deletions(-)
+ create mode 100644 drivers/base/power/boeffla_wl_blocker.c
+
+diff --git a/drivers/base/power/Makefile b/drivers/base/power/Makefile
+index 5998c53280f5..a1d4db450cf1 100644
+--- a/drivers/base/power/Makefile
++++ b/drivers/base/power/Makefile
+@@ -4,5 +4,6 @@ obj-$(CONFIG_PM_TRACE_RTC)	+= trace.o
+ obj-$(CONFIG_PM_OPP)	+= opp/
+ obj-$(CONFIG_PM_GENERIC_DOMAINS)	+=  domain.o domain_governor.o
+ obj-$(CONFIG_HAVE_CLK)	+= clock_ops.o
++obj-$(CONFIG_BOEFFLA_WL_BLOCKER)	+= boeffla_wl_blocker.o
+ 
+ ccflags-$(CONFIG_DEBUG_DRIVER) := -DDEBUG
+diff --git a/drivers/base/power/boeffla_wl_blocker.c b/drivers/base/power/boeffla_wl_blocker.c
+new file mode 100644
+index 000000000000..4409648514db
+--- /dev/null
++++ b/drivers/base/power/boeffla_wl_blocker.c
+@@ -0,0 +1,181 @@
++/*
++ * Author: andip71, 28.08.2017
++ *
++ * Version 1.0.0
++ *
++ * This software is licensed under the terms of the GNU General Public
++ * License version 2, as published by the Free Software Foundation, and
++ * may be copied, distributed, and modified under those terms.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ */
++
++/*
++ * Change log:
++ *
++ * 1.0.0 (28.08.2017)
++ *   - Initial version
++ *
++ */
++
++#include <linux/module.h>
++#include <linux/kobject.h>
++#include <linux/sysfs.h>
++#include <linux/device.h>
++#include <linux/miscdevice.h>
++#include <linux/printk.h>
++
++
++#define BOEFFLA_WL_BLOCKER_VERSION	"1.0.0"
++
++
++/*****************************************/
++// Variables
++/*****************************************/
++
++extern char list_wl[255];
++extern char list_wl_search[257];
++extern bool wl_blocker_active;
++extern bool wl_blocker_debug;
++
++
++/*****************************************/
++// sysfs interface functions
++/*****************************************/
++
++static ssize_t wakelock_blocker_show(struct device *dev, struct device_attribute *attr,
++			    char *buf)
++{
++	// return list of wakelocks to be blocked
++	return sprintf(buf, "%s\n", list_wl);
++}
++
++
++static ssize_t wakelock_blocker_store(struct device * dev, struct device_attribute *attr,
++			     const char * buf, size_t n)
++{
++	int len = n;
++
++	// only strings up to 255 characters are allowed
++	if (len > 255)
++		return -EINVAL;
++
++	// set flag if wakelock blocker should be active (for performance reasons)
++	if (len > 1)
++		wl_blocker_active = true;
++	else
++		wl_blocker_active = false;
++
++	// store wakelock list and search string (with semicolons added at start and end)
++	sscanf(buf, "%s", list_wl);
++	sprintf(list_wl_search, ";%s;", list_wl);
++
++	return n;
++}
++
++
++static ssize_t debug_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	// return current debug status
++	return sprintf(buf, "Debug status: %d\n\nList: %s\nSearch list: %s\nActive: %d\n",
++					wl_blocker_debug, list_wl, list_wl_search, wl_blocker_active);
++}
++
++
++static ssize_t debug_store(struct device *dev, struct device_attribute *attr,
++						const char *buf, size_t count)
++{
++	unsigned int ret = -EINVAL;
++	unsigned int val;
++
++	// check data and store if valid
++	ret = sscanf(buf, "%d", &val);
++
++	if (ret != 1)
++		return -EINVAL;
++
++	if (val == 1)
++		wl_blocker_debug = true;
++	else
++		wl_blocker_debug = false;
++
++	return count;
++}
++
++
++static ssize_t version_show(struct device *dev, struct device_attribute *attr, char *buf)
++{
++	// return version information
++	return sprintf(buf, "%s\n", BOEFFLA_WL_BLOCKER_VERSION);
++}
++
++
++
++/*****************************************/
++// Initialize sysfs objects
++/*****************************************/
++
++// define objects
++static DEVICE_ATTR(wakelock_blocker, 0644, wakelock_blocker_show, wakelock_blocker_store);
++static DEVICE_ATTR(debug, 0664, debug_show, debug_store);
++static DEVICE_ATTR(version, 0664, version_show, NULL);
++
++// define attributes
++static struct attribute *boeffla_wl_blocker_attributes[] = {
++	&dev_attr_wakelock_blocker.attr,
++	&dev_attr_debug.attr,
++	&dev_attr_version.attr,
++	NULL
++};
++
++// define attribute group
++static struct attribute_group boeffla_wl_blocker_control_group = {
++	.attrs = boeffla_wl_blocker_attributes,
++};
++
++// define control device
++static struct miscdevice boeffla_wl_blocker_control_device = {
++	.minor = MISC_DYNAMIC_MINOR,
++	.name = "boeffla_wakelock_blocker",
++};
++
++
++/*****************************************/
++// Driver init and exit functions
++/*****************************************/
++
++static int boeffla_wl_blocker_init(void)
++{
++	// register boeffla wakelock blocker control device
++	misc_register(&boeffla_wl_blocker_control_device);
++	if (sysfs_create_group(&boeffla_wl_blocker_control_device.this_device->kobj,
++				&boeffla_wl_blocker_control_group) < 0) {
++		printk("Boeffla WL blocker: failed to create sys fs object.\n");
++		return 0;
++	}
++
++	// Print debug info
++	printk("Boeffla WL blocker: driver version %s started\n", BOEFFLA_WL_BLOCKER_VERSION);
++
++	return 0;
++}
++
++
++static void boeffla_wl_blocker_exit(void)
++{
++	// remove boeffla wakelock blocker control device
++	sysfs_remove_group(&boeffla_wl_blocker_control_device.this_device->kobj,
++                           &boeffla_wl_blocker_control_group);
++
++	// Print debug info
++	printk("Boeffla WL blocker: driver stopped\n");
++}
++
++
++/* define driver entry points */
++module_init(boeffla_wl_blocker_init);
++module_exit(boeffla_wl_blocker_exit);
+diff --git a/drivers/base/power/main.c b/drivers/base/power/main.c
+index 6c5bc3fadfcf..05a4de6edfbb 100644
+--- a/drivers/base/power/main.c
++++ b/drivers/base/power/main.c
+@@ -672,6 +672,10 @@ void dpm_resume_early(pm_message_t state)
+ 	struct device *dev;
+ 	ktime_t starttime = ktime_get();
+ 
++#ifdef CONFIG_BOEFFLA_WL_BLOCKER
++	pm_print_active_wakeup_sources();
++#endif
++
+ 	trace_suspend_resume(TPS("dpm_resume_early"), state.event, true);
+ 	mutex_lock(&dpm_list_mtx);
+ 	pm_transition = state;
+diff --git a/drivers/base/power/wakeup.c b/drivers/base/power/wakeup.c
+index 0fd2dfda4af7..9cf64df539fa 100644
+--- a/drivers/base/power/wakeup.c
++++ b/drivers/base/power/wakeup.c
+@@ -20,6 +20,15 @@
+ 
+ #include "power.h"
+ 
++
++#ifdef CONFIG_BOEFFLA_WL_BLOCKER
++char list_wl[255];
++char list_wl_search[257];
++bool wl_blocker_active = false;
++bool wl_blocker_debug = false;
++#endif
++
++
+ /*
+  * If set, the suspend/hibernate code will abort transitions to a sleep state
+  * if wakeup events are registered during or immediately before the transition.
+@@ -550,19 +559,62 @@ static void wakeup_source_activate(struct wakeup_source *ws)
+ 	trace_wakeup_source_activate(ws->name, cec);
+ }
+ 
++#ifdef CONFIG_BOEFFLA_WL_BLOCKER
++// AP: Function to check if a wakelock is on the wakelock blocker list
++static bool check_for_block(struct wakeup_source *ws)
++{
++	char wakelock_name[52];
++
++	// if debug mode on, print every wakelock requested
++	if (wl_blocker_debug)
++		printk("Boeffla WL blocker: %s requested\n", ws->name);
++
++	// if there is no list of wakelocks to be blocked, exit without futher checking
++	if (!wl_blocker_active)
++		return false;
++
++	// check if wakelock is in wake lock list to be blocked
++	if (ws)
++	{
++		// wake lock names which are longer than 50 chars are not handled
++		if (strlen(ws->name) > 50)
++			return false;
++
++		sprintf(wakelock_name, ";%s;", ws->name);
++
++		if(strstr(list_wl_search, wakelock_name) == NULL)
++			return false;
++	}
++
++	// wake lock is in list, print it if debug mode on
++	if (wl_blocker_debug)
++		printk("Boeffla WL blocker: %s blocked\n", ws->name);
++
++	// finally block it
++	return true;
++}
++#endif
++
+ /**
+  * wakeup_source_report_event - Report wakeup event using the given source.
+  * @ws: Wakeup source to report the event for.
+  */
+ static void wakeup_source_report_event(struct wakeup_source *ws)
+ {
+-	ws->event_count++;
+-	/* This is racy, but the counter is approximate anyway. */
+-	if (events_check_enabled)
+-		ws->wakeup_count++;
+-
+-	if (!ws->active)
+-		wakeup_source_activate(ws);
++#ifdef CONFIG_BOEFFLA_WL_BLOCKER
++	if (!check_for_block(ws))	// AP: check if wakelock is on wakelock blocker list
++	{
++#endif
++		ws->event_count++;
++		/* This is racy, but the counter is approximate anyway. */
++		if (events_check_enabled)
++			ws->wakeup_count++;
++
++		if (!ws->active)
++			wakeup_source_activate(ws);
++#ifdef CONFIG_BOEFFLA_WL_BLOCKER
++	}
++#endif
+ }
+ 
+ /**
+@@ -623,6 +675,7 @@ static inline void update_prevent_sleep_time(struct wakeup_source *ws,
+ 					     ktime_t now) {}
+ #endif
+ 
++
+ /**
+  * wakup_source_deactivate - Mark given wakeup source as inactive.
+  * @ws: Wakeup source to handle.
+@@ -850,7 +903,10 @@ void pm_print_active_wakeup_sources(void)
+ 	list_for_each_entry_rcu(ws, &wakeup_sources, entry) {
+ 		if (ws->active) {
+ 			pr_info("active wakeup source: %s\n", ws->name);
+-			active = 1;
++#ifdef CONFIG_BOEFFLA_WL_BLOCKER
++			if (!check_for_block(ws))	// AP: check if wakelock is on wakelock blocker list
++#endif
++				active = 1;
+ 		} else if (!active &&
+ 			   (!last_activity_ws ||
+ 			    ktime_to_ns(ws->last_time) >
+diff --git a/kernel/power/Kconfig b/kernel/power/Kconfig
+index 2060d474763d..4d6ef6aec1a0 100644
+--- a/kernel/power/Kconfig
++++ b/kernel/power/Kconfig
+@@ -326,7 +326,8 @@ config SUSPEND_DEBUG
+ 	bool "Enable snapshot of regulator and tlmm when suspend"
+ 	depends on SUSPEND
+ 	default n
+-	help
+-	  This allows you to dump the regulator state and tlmm configuration
+-	  before suspend. It doesn't work only if you have read the system
+-	  file node /sys/privae/tlmm_before_sleep and vreg_before_sleep
++
++config BOEFFLA_WL_BLOCKER
++		bool "Boeffla generic wakelock blocker driver"
++		depends on PM
++		default N

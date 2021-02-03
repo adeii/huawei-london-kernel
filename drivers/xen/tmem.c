@@ -290,6 +290,10 @@ static int tmem_frontswap_store(unsigned type, pgoff_t offset,
 	unsigned long pfn = page_to_pfn(page);
 	int pool = tmem_frontswap_poolid;
 	int ret;
+	
+	/* THP isn't supported */
+	if (PageTransHuge(page))
+		return -1;
 
 	if (pool < 0)
 		return -1;
